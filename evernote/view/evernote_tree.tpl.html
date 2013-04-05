@@ -1,0 +1,45 @@
+<script type="text/javascript" src="./plugin/evernote/static/ztree.js"></script>
+<link rel="stylesheet" type="text/css" href="./plugin/evernote/static/zTreeStyle/zTreeStyle.css" />
+
+<SCRIPT type="text/javascript" >
+	var setting = {
+		view: {
+			dblClickExpand: false,
+			showLine: true,
+			selectedMulti: false,
+			showIcon:true
+		},
+		async: {
+			enable: true,
+			url:"./index.php?c=plugin&a=evernote_data",
+			autoParam:["id", "level=lv"],
+			otherParam:{"otherParam":"zTreeAsyncTest"},
+		},
+		data:{
+			simpleData: {
+				enable:true,
+				idKey: "id",
+				pIdKey: "pId",
+				rootPId: 0
+			}
+		},
+		callback: {
+			onClick: function(event, treeId, treeNode){
+				if(!treeNode.isParent){
+					if($("#comment_text")){
+						$("#comment_text").val(treeNode.name+"："+treeNode.link);
+					}
+				}
+			}
+		}
+	};
+	
+	$(document).ready(function(){
+		var t = $("#evernote_tree_container");
+		t = $.fn.zTree.init(t, setting);
+	});
+
+  </SCRIPT>
+<div class="row-fluid">	
+	<div id="evernote_tree_container"  class="ztree"></div>
+</div>	
