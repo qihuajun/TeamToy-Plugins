@@ -11,6 +11,12 @@ require_once dirname(__DIR__)."/packages/UserStore/UserStore.php";
 require_once dirname(__DIR__)."/packages/UserStore/UserStore_constants.php";
 require_once dirname(__DIR__)."/packages/NoteStore/NoteStore.php";
 
+require_once dirname(__DIR__)."../../oauth/OAuthStore.php";
+require_once dirname(__DIR__)."../../oauth/OAuthRequester.php";
+
+use \OAuthStore;
+use \OAuthRequester;
+
 class Client
 {
     private $consumerKey;
@@ -28,37 +34,63 @@ class Client
 
         $options += array('sandbox' => true);
         $this->sandbox = $options['sandbox'];
+        
+        $options += array('serviceHost' => 'https://www.evernote.com');
+        
+        $defaultServiceHost = $this->sandbox ? 'https://sandbox.evernote.com' : $options['serviceHost'];
 
-        $defaultServiceHost = $this->sandbox ? 'sandbox.evernote.com' : 'www.evernote.com';
-
-        $options += array('serviceHost' => $defaultServiceHost);
-        $this->serviceHost = $options['serviceHost'];
+        $this->serviceHost = $defaultServiceHost;
 
         $options += array('additionalHeaders' => array());
         $this->additionalHeaders = $options['additionalHeaders'];
 
         $this->token = isset($options['token']) ? $options['token'] : null;
         $this->secret = isset($options['secret']) ? $options['secret'] : null;
+        
+        if(!$this->token){
+        	$options = array(
+        			'consumer_key' =>  $this->consumerKey,
+        			'consumer_secret' => $this->consumerSecret,
+        			'server_uri' => $this->serviceHost,
+        			'request_token_uri' => $this->serviceHost."/oauth",
+        			'authorize_uri' => $this->serviceHost.'/OAuth.action',
+        			'access_token_uri' => $this->serviceHost."/oauth"
+        	);
+        	
+        	OAuthStore::instance("Session", $options);
+        }
+        
+       
     }
 
     public function getRequestToken($callbackUrl)
     {
-        $oauth = new \OAuth($this->consumerKey, $this->consumerSecret);
-        $oauth->disableSSLChecks();
-
-        return $oauth->getRequestToken($this->getEndpoint('oauth'), $callbackUrl);
+    	try {
+    		$getAuthTokenParams = array(
+				'oauth_callback' => $callbackUrl
+			);
+    		$tokenResultParams = OAuthRequester::requestRequestToken($this->consumerKey, 0, $getAuthTokenParams);
+    		 
+    		return $tokenResultParams;
+    	}catch (\Exception $e){
+    		
+    	}
+    	
+    	
     }
 
-    public function getAccessToken($oauthToken, $oauthTokenSecret, $oauthVerifier)
+    public function getAccessToken($oauthToken, $tokenResultParams)
     {
-        $oauth = new \OAuth($this->consumerKey, $this->consumerSecret);
-        $oauth->disableSSLChecks();
-        $oauth->setToken($oauthToken, $oauthTokenSecret);
-        $accessToken= $oauth->getAccessToken($this->getEndpoint('oauth'), null, $oauthVerifier);
-
-        $this->token = $accessToken['oauth_token'];
-
-        return $accessToken;
+        try {
+        	$accessToken = OAuthRequester::requestAccessToken($this->consumerKey, $oauthToken, 0, 'POST', $tokenResultParams);
+        	
+        	$this->token = $accessToken['oauth_token'];
+        	
+        	return $accessToken;
+        } catch (Exception $e) {
+        	return false;
+        }
+    	
     }
 
     public function getAuthorizeUrl($requestToken)
@@ -107,7 +139,7 @@ class Client
 
     protected function getEndpoint($path = null)
     {
-        $url = "https://".$this->serviceHost;
+        $url = $this->serviceHost;
         if ($path != null) {
             $url .= "/".$path;
         }

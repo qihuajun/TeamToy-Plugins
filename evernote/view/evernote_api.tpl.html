@@ -2,7 +2,8 @@
 <div class="alert">
 <span class="label label-important">Important</span>请申请具有“Full Access”权限的API KEY！
 </div>
-<form class="form-horizontal" action="?c=plugin&a=evernote_api_save" method="post" id="evernoteapi_form">
+<script type="text/javascript" src="./plugin/evernote/static/evernote.js"></script>
+<form class="form-horizontal" action="?c=plugin&a=evernote_api_save" method="get" id="evernoteapi_form">
 	<div class="control-group">
 		<label class="control-label" for="evernote_api_key">API Key：</label>
 		<div class="controls">
@@ -18,7 +19,7 @@
 	</div>
 
 	<div class="form-actions">
-            <a type="button" class="btn btn-primary" href="javascript:send_form_in('evernoteapi_form');">保存</a>&nbsp;
+            <a type="button" class="btn btn-primary" href="javascript:evernote_api_save('evernoteapi_form');">保存</a>&nbsp;
 </form>
 
 </div>	

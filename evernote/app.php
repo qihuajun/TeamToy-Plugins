@@ -32,7 +32,8 @@ if( !mysql_query("SHOW COLUMNS FROM `evernote_user`",db()) )
 {
 	// table not exists
 	// create it
-	run_sql("CREATE TABLE `evernote_user` (
+	run_sql("
+CREATE TABLE `evernote_user` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '自增主键',
   `uid` int(11) NOT NULL COMMENT '用户ID',
   `name` varchar(64) NOT NULL COMMENT '用户名',
@@ -41,10 +42,12 @@ if( !mysql_query("SHOW COLUMNS FROM `evernote_user`",db()) )
   `oauth_token` varchar(256) NOT NULL COMMENT 'Evernote oauth Token',
   `oauth_token_secret` varchar(256) DEFAULT NULL COMMENT 'Evernote oauth Token Secret',
   `edam_expires` bigint(20) NOT NULL COMMENT 'Token过期时间',
+  `domain` tinyint(1) NOT NULL DEFAULT '1' COMMENT '服务Domain',
   `createdtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '数据插入时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `inx_uid` (`uid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 ");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+	");
 
 }
 
@@ -66,7 +69,7 @@ function evernote_api_oauth()
 	$url = c('site_url')."/index.php?c=plugin&a=evernote_oauth";
 	if(!is_user_authed_by_evernote()){
 		$content = <<<EOT
-<li><a href="$url"><img width=16 src='./plugin/evernote/client/enlogo.png'>绑定Evernote</a></li>
+<li><a href="$url">绑定Evernote</a></li>
 EOT;
 	}else{
 		
@@ -97,6 +100,9 @@ function  plugin_evernote_api_save()
 {
 	$key = z(t(v('evernote_api_key')));
 	$secret = z(t(v('evernote_api_secret')));
+	
+	unset($_POST['evernote_api_key']);
+	unset($_POST['evernote_api_secret']);
 
 	if(empty($key) || empty($secret)) {
 		return ajax_echo('设置内容不能为空');
@@ -218,6 +224,14 @@ function evernote_data(  )
 
 
 function is_user_authed_by_evernote(){
+	if (!kget('evernote_api_key')) {
+		return false;
+	}
+	
+	if(!kget('evernote_api_secret')) {
+		return false;
+	}
+	
 	$uid = uid();
 	$sql = "select edam_expires from evernote_user where uid={$uid}";
 	$expire = get_var($sql);
@@ -255,8 +269,7 @@ function getTemporaryCredentials($key,$secret)
 		));
 		$requestTokenInfo = $client->getRequestToken(getCallbackUrl());
 		if ($requestTokenInfo) {
-			$_SESSION['evernote_requestToken'] = $requestTokenInfo['oauth_token'];
-			$_SESSION['evernote_requestTokenSecret'] = $requestTokenInfo['oauth_token_secret'];
+			$_SESSION['evernote_requestToken'] = $requestTokenInfo['token'];
 			return TRUE;
 		}
 	} catch (OAuthException $e) {
@@ -332,17 +345,15 @@ function evernote_callback()
 */
 function getTokenCredentials()
 {
-// 	if (isset($_SESSION['evernote_accessToken'])) {
-// 		return FALSE;
-// 	}
-	
 	try {
 		$client = new Client(array(
 				'consumerKey' => kget('evernote_api_key'),
 				'consumerSecret' => kget('evernote_api_secret'),
 				'sandbox' => EVERNOTE_SANDBOX
 		));
-		$accessTokenInfo = $client->getAccessToken($_SESSION['evernote_requestToken'], $_SESSION['evernote_requestTokenSecret'], $_SESSION['evernote_oauthVerifier']);
+		$tokenResultParams = $_GET;
+		$_SESSION['accessToken'] = $tokenResultParams;
+		$accessTokenInfo = $client->getAccessToken($_SESSION['evernote_requestToken'], $tokenResultParams);
 		if ($accessTokenInfo) {
 			$_SESSION['evernote_accessToken'] = $accessTokenInfo['oauth_token'];
 			return $accessTokenInfo;
